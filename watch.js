@@ -11,6 +11,7 @@ $(document).ready(function () {
     ];
     const isContainAds = c => adsRegexList.some(r => (r.lastIndex = 0, r.test(c)));
 
+    // ✅ Trả về m3u8 dạng data: URI
     async function removeAdsFromM3u8(url) {
         const base = new URL(url);
         if (m3u8Cache[base]) return m3u8Cache[base];
@@ -21,7 +22,7 @@ $(document).ready(function () {
             try { return new URL(l, base); } catch { return l; }
         });
 
-        // Nếu là master playlist → lấy bản cuối cùng
+        // Nếu là master playlist → lấy bản cuối
         if (text.includes("#EXT-X-STREAM-INF")) {
             const list = text.trim().split("\n").filter(l => l.endsWith(".m3u8"));
             return m3u8Cache[base] = await removeAdsFromM3u8(list.at(-1));
@@ -30,8 +31,10 @@ $(document).ready(function () {
         // Lọc quảng cáo
         if (isContainAds(text)) adsRegexList.forEach(r => text = text.replaceAll(r, ""));
 
-        // Trả text m3u8 dạng blob URL
-        return m3u8Cache[base] = URL.createObjectURL(new Blob([text], { type: "application/vnd.apple.mpegurl" }));
+        // Trả về data URI
+        const dataUri = "data:application/vnd.apple.mpegurl;base64," +
+                        btoa(unescape(encodeURIComponent(text)));
+        return m3u8Cache[base] = dataUri;
     }
 
     function getUrlParameter(name) {
@@ -40,16 +43,16 @@ $(document).ready(function () {
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
-    // ✅ Phiên bản mới của loadEpisode()
+    // Load tập phim
     async function loadEpisode(m3u8Url) {
         try {
             const cleanUrl = await removeAdsFromM3u8(m3u8Url);
             player.src({
                 src: cleanUrl,
-                type: 'application/vnd.apple.mpegurl' // Đảm bảo Video.js hiểu là HLS
+                type: 'application/vnd.apple.mpegurl'
             });
 
-            // Phát thử, nếu bị chặn thì thôi (muted autoplay)
+            // Autoplay muted để tránh bị chặn
             player.muted(true);
             player.play().catch(() => {
                 console.warn("Autoplay bị chặn, chờ người dùng bấm play");
@@ -59,6 +62,7 @@ $(document).ready(function () {
         }
     }
 
+    // Render danh sách tập
     function renderEpisodes(episodes, movieSlug, currentEpisodeSlug) {
         const episodeHtml = episodes.map(ep => `
             <li class="list-group-item bg-dark text-white border-secondary ${ep.slug === currentEpisodeSlug ? 'active' : ''}"
@@ -80,7 +84,7 @@ $(document).ready(function () {
         });
     }
 
-    // Khởi tạo Video.js (muted autoplay để tránh lỗi policy)
+    // Khởi tạo Video.js
     const player = videojs(videoElement, {
         autoplay: 'muted',
         muted: true,
