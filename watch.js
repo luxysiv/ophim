@@ -9,46 +9,98 @@ $(document).ready(function () {
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
+    // Các regex để chặn quảng cáo
+    const adRegexList = [
+        new RegExp("(?<!#EXT-X-DISCONTINUITY[\\s\\S]*)#EXT-X-DISCONTINUITY\\n(?:.*?\\n){18,24}#EXT-X-DISCONTINUITY\\n(?![\\s\\S]*#EXT-X-DISCONTINUITY)", "g"),
+        /#EXT-X-DISCONTINUITY\n(?:#EXT-X-KEY:METHOD=NONE\n(?:.*\n){18,24})?#EXT-X-DISCONTINUITY\n|convertv7\//g,
+        /#EXT-X-DISCONTINUITY\n#EXTINF:3\.920000,\n.*\n#EXTINF:0\.760000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.500000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.420000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:0\.780000,\n.*\n#EXTINF:1\.960000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:1\.760000,\n.*\n#EXTINF:3\.200000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:1\.360000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:0\.720000,\n.*/g
+    ];
+    
+    // Cache các Blob URL để quản lý bộ nhớ tốt hơn
+    const blobCache = {};
+
+    async function processPlaylist(url) {
+        if (blobCache[url]) {
+            return blobCache[url];
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch playlist: ${url}`);
+        }
+        let playlist = await response.text();
+
+        // Chuyển đường dẫn tương đối thành tuyệt đối trước khi xử lý
+        const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+        playlist = playlist.replace(/(^[^#].*)$/gm, (line) => {
+            return new URL(line, baseUrl).href;
+        });
+
+        // Áp dụng tất cả regex để xóa quảng cáo
+        adRegexList.forEach(regex => {
+            playlist = playlist.replace(regex, "");
+        });
+
+        // Tạo Blob URL cho playlist đã xử lý và lưu vào cache
+        const blob = new Blob([playlist], { type: 'application/vnd.apple.mpegurl' });
+        const blobUrl = URL.createObjectURL(blob);
+        blobCache[url] = blobUrl;
+
+        return blobUrl;
+    }
+
     async function loadEpisode(m3u8Url) {
         if (Hls.isSupported()) {
             if (hls) hls.destroy();
             hls = new Hls();
 
             try {
-                const response = await fetch(m3u8Url);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch m3u8 playlist');
+                const masterPlaylistResponse = await fetch(m3u8Url);
+                if (!masterPlaylistResponse.ok) {
+                    throw new Error('Failed to fetch master playlist');
                 }
-                let playlist = await response.text();
-
-                // Lấy base URL từ m3u8Url gốc để xử lý đường dẫn tương đối
+                let masterPlaylist = await masterPlaylistResponse.text();
                 const baseUrl = m3u8Url.substring(0, m3u8Url.lastIndexOf('/') + 1);
 
-                // Chuyển tất cả các đường dẫn tương đối thành tuyệt đối
-                playlist = playlist.replace(/(^[^#].*)$/gm, (line) => {
-                    return new URL(line, baseUrl).href;
-                });
-                
-                // Sử dụng các regex có sẵn từ script ban đầu để loại bỏ quảng cáo
-                const adRegexList = [
-                    new RegExp("(?<!#EXT-X-DISCONTINUITY[\\s\\S]*)#EXT-X-DISCONTINUITY\\n(?:.*?\\n){18,24}#EXT-X-DISCONTINUITY\\n(?![\\s\\S]*#EXT-X-DISCONTINUITY)", "g"),
-                    /#EXT-X-DISCONTINUITY\n(?:#EXT-X-KEY:METHOD=NONE\n(?:.*\n){18,24})?#EXT-X-DISCONTINUITY\n|convertv7\//g,
-                    /#EXT-X-DISCONTINUITY\n#EXTINF:3\.920000,\n.*\n#EXTINF:0\.760000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.500000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.420000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:0\.780000,\n.*\n#EXTINF:1\.960000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:1\.760000,\n.*\n#EXTINF:3\.200000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:1\.360000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:2\.000000,\n.*\n#EXTINF:0\.720000,\n.*/g
-                ];
-                
-                adRegexList.forEach(regex => {
-                    playlist = playlist.replace(regex, "");
-                });
+                // Regex để tìm các URL playlist con trong playlist chính
+                const subPlaylistRegex = /^(?!#).*m3u8.*$/gm;
+                const subPlaylistUrls = masterPlaylist.match(subPlaylistRegex);
 
-                // Tạo Blob URL từ playlist đã được làm sạch và đã xử lý đường dẫn
-                const blob = new Blob([playlist], { type: 'application/vnd.apple.mpegurl' });
-                const blobUrl = URL.createObjectURL(blob);
+                if (subPlaylistUrls) {
+                    // Nếu là playlist chính, xử lý từng playlist con
+                    const processedSubPlaylistUrls = await Promise.all(
+                        subPlaylistUrls.map(async (subUrl) => {
+                            const absoluteSubUrl = new URL(subUrl, baseUrl).href;
+                            const processedBlobUrl = await processPlaylist(absoluteSubUrl);
+                            return processedBlobUrl;
+                        })
+                    );
+                    
+                    // Thay thế các URL playlist con gốc bằng các Blob URL đã xử lý
+                    let subUrlIndex = 0;
+                    masterPlaylist = masterPlaylist.replace(subPlaylistRegex, () => {
+                        return processedSubPlaylistUrls[subUrlIndex++];
+                    });
+                } else {
+                    // Nếu chỉ là một playlist đơn, xử lý trực tiếp
+                    const processedBlobUrl = await processPlaylist(m3u8Url);
+                    masterPlaylist = await fetch(processedBlobUrl).then(res => res.text());
+                }
 
-                hls.loadSource(blobUrl);
+                // Tạo Blob URL cho master playlist cuối cùng và load vào HLS
+                const finalBlob = new Blob([masterPlaylist], { type: 'application/vnd.apple.mpegurl' });
+                const finalBlobUrl = URL.createObjectURL(finalBlob);
+
+                hls.loadSource(finalBlobUrl);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     video.play();
-                    URL.revokeObjectURL(blobUrl);
+                    // Giải phóng tất cả các Blob URL đã tạo
+                    URL.revokeObjectURL(finalBlobUrl);
+                    for (const key in blobCache) {
+                        URL.revokeObjectURL(blobCache[key]);
+                        delete blobCache[key];
+                    }
                 });
                 hls.on(Hls.Events.ERROR, (event, data) => {
                     console.error('HLS Error:', data);
@@ -68,7 +120,6 @@ $(document).ready(function () {
                         }
                     }
                 });
-
             } catch (error) {
                 console.error('Error loading HLS video:', error);
                 video.src = m3u8Url;
