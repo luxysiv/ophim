@@ -3,6 +3,7 @@ $(document).ready(function () {
     const videoElement = document.getElementById('video-player');
     const m3u8Cache = {};
 
+    // Regex lọc quảng cáo trong m3u8
     const adsRegexList = [
         /(?<!#EXT-X-DISCONTINUITY[\s\S]*)#EXT-X-DISCONTINUITY\n(?:.*?\n){18,24}#EXT-X-DISCONTINUITY\n(?![\s\S]*#EXT-X-DISCONTINUITY)/g,
         /#EXT-X-DISCONTINUITY\n(?:#EXT-X-KEY:METHOD=NONE\n(?:.*\n){18,24})?#EXT-X-DISCONTINUITY\n|convertv7\//g,
@@ -15,16 +16,21 @@ $(document).ready(function () {
         if (m3u8Cache[base]) return m3u8Cache[base];
         let text = await (await fetch(base)).text();
 
+        // Fix đường dẫn segment
         text = text.replace(/^[^#].*$/gm, l => {
             try { return new URL(l, base); } catch { return l; }
         });
 
+        // Nếu là master playlist → lấy bản cuối cùng
         if (text.includes("#EXT-X-STREAM-INF")) {
             const list = text.trim().split("\n").filter(l => l.endsWith(".m3u8"));
             return m3u8Cache[base] = await removeAdsFromM3u8(list.at(-1));
         }
 
+        // Lọc quảng cáo
         if (isContainAds(text)) adsRegexList.forEach(r => text = text.replaceAll(r, ""));
+
+        // Trả text m3u8 dạng blob URL
         return m3u8Cache[base] = URL.createObjectURL(new Blob([text], { type: "application/vnd.apple.mpegurl" }));
     }
 
@@ -34,10 +40,23 @@ $(document).ready(function () {
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
+    // ✅ Phiên bản mới của loadEpisode()
     async function loadEpisode(m3u8Url) {
-        const cleanUrl = await removeAdsFromM3u8(m3u8Url);
-        player.src({ src: cleanUrl, type: 'application/x-mpegURL' });
-        player.play();
+        try {
+            const cleanUrl = await removeAdsFromM3u8(m3u8Url);
+            player.src({
+                src: cleanUrl,
+                type: 'application/vnd.apple.mpegurl' // Đảm bảo Video.js hiểu là HLS
+            });
+
+            // Phát thử, nếu bị chặn thì thôi (muted autoplay)
+            player.muted(true);
+            player.play().catch(() => {
+                console.warn("Autoplay bị chặn, chờ người dùng bấm play");
+            });
+        } catch (err) {
+            console.error("Lỗi khi load video:", err);
+        }
     }
 
     function renderEpisodes(episodes, movieSlug, currentEpisodeSlug) {
@@ -61,9 +80,10 @@ $(document).ready(function () {
         });
     }
 
-    // Khởi tạo Video.js
+    // Khởi tạo Video.js (muted autoplay để tránh lỗi policy)
     const player = videojs(videoElement, {
-        autoplay: false,
+        autoplay: 'muted',
+        muted: true,
         controls: true,
         preload: 'auto',
         fluid: true,
@@ -72,7 +92,7 @@ $(document).ready(function () {
         }
     });
 
-    // Double tap gesture
+    // Double tap tua 10s
     let lastTapTime = 0;
     videoElement.addEventListener('touchend', function (e) {
         const currentTime = new Date().getTime();
@@ -96,7 +116,7 @@ $(document).ready(function () {
         setTimeout(() => el.classList.remove('tap-show'), 500);
     }
 
-    // Lấy dữ liệu phim
+    // Lấy dữ liệu phim từ API
     const movieSlug = getUrlParameter('slug');
     let episodeSlug = getUrlParameter('episode');
 
