@@ -1,7 +1,6 @@
 $(document).ready(function () {
     const API_BASE_URL = 'https://ophim1.com/v1/api/phim/';
-    const video = document.getElementById('video-player');
-    let hls;
+    const videoElement = document.getElementById('video-player');
     const m3u8Cache = {};
 
     const adsRegexList = [
@@ -29,26 +28,16 @@ $(document).ready(function () {
         return m3u8Cache[base] = URL.createObjectURL(new Blob([text], { type: "application/vnd.apple.mpegurl" }));
     }
 
-    // ===== LẤY PARAM TỪ URL =====
     function getUrlParameter(name) {
         const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
         const results = regex.exec(location.search);
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
-    // ===== LOAD VIDEO =====
     async function loadEpisode(m3u8Url) {
-        const cleanUrl = await removeAdsFromM3u8(m3u8Url); // Chặn quảng cáo trước khi phát
-        if (Hls.isSupported()) {
-            if (hls) hls.destroy();
-            hls = new Hls();
-            hls.loadSource(cleanUrl);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = cleanUrl;
-            video.addEventListener('loadedmetadata', () => video.play());
-        }
+        const cleanUrl = await removeAdsFromM3u8(m3u8Url);
+        player.src({ src: cleanUrl, type: 'application/x-mpegURL' });
+        player.play();
     }
 
     function renderEpisodes(episodes, movieSlug, currentEpisodeSlug) {
@@ -61,7 +50,7 @@ $(document).ready(function () {
         $('#episodes-sidebar').html(episodeHtml);
 
         $('#episodes-sidebar .list-group-item').on('click', function () {
-            if ($(this).hasClass('active')) return; // Chặn click trùng tập
+            if ($(this).hasClass('active')) return;
             const newEpisodeSlug = $(this).data('slug');
             const newM3u8Url = $(this).data('url');
             window.history.pushState({}, '', `watch.html?slug=${movieSlug}&episode=${newEpisodeSlug}`);
@@ -72,6 +61,42 @@ $(document).ready(function () {
         });
     }
 
+    // Khởi tạo Video.js
+    const player = videojs(videoElement, {
+        autoplay: false,
+        controls: true,
+        preload: 'auto',
+        fluid: true,
+        controlBar: {
+            volumePanel: { inline: false }
+        }
+    });
+
+    // Double tap gesture
+    let lastTapTime = 0;
+    videoElement.addEventListener('touchend', function (e) {
+        const currentTime = new Date().getTime();
+        const tapX = e.changedTouches[0].clientX;
+        const screenWidth = window.innerWidth;
+        if (currentTime - lastTapTime < 300) {
+            if (tapX < screenWidth / 2) {
+                player.currentTime(player.currentTime() - 10);
+                showTapIndicator('left');
+            } else {
+                player.currentTime(player.currentTime() + 10);
+                showTapIndicator('right');
+            }
+        }
+        lastTapTime = currentTime;
+    });
+
+    function showTapIndicator(side) {
+        const el = document.querySelector(side === 'left' ? '.tap-left' : '.tap-right');
+        el.classList.add('tap-show');
+        setTimeout(() => el.classList.remove('tap-show'), 500);
+    }
+
+    // Lấy dữ liệu phim
     const movieSlug = getUrlParameter('slug');
     let episodeSlug = getUrlParameter('episode');
 
