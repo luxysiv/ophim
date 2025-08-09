@@ -21,6 +21,14 @@ $(document).ready(function () {
                 }
                 let playlist = await response.text();
 
+                // Lấy base URL từ m3u8Url gốc để xử lý đường dẫn tương đối
+                const baseUrl = m3u8Url.substring(0, m3u8Url.lastIndexOf('/') + 1);
+
+                // Chuyển tất cả các đường dẫn tương đối thành tuyệt đối
+                playlist = playlist.replace(/(^[^#].*)$/gm, (line) => {
+                    return new URL(line, baseUrl).href;
+                });
+                
                 // Sử dụng các regex có sẵn từ script ban đầu để loại bỏ quảng cáo
                 const adRegexList = [
                     new RegExp("(?<!#EXT-X-DISCONTINUITY[\\s\\S]*)#EXT-X-DISCONTINUITY\\n(?:.*?\\n){18,24}#EXT-X-DISCONTINUITY\\n(?![\\s\\S]*#EXT-X-DISCONTINUITY)", "g"),
@@ -32,7 +40,7 @@ $(document).ready(function () {
                     playlist = playlist.replace(regex, "");
                 });
 
-                // Tạo Blob URL từ playlist đã được làm sạch
+                // Tạo Blob URL từ playlist đã được làm sạch và đã xử lý đường dẫn
                 const blob = new Blob([playlist], { type: 'application/vnd.apple.mpegurl' });
                 const blobUrl = URL.createObjectURL(blob);
 
@@ -40,7 +48,6 @@ $(document).ready(function () {
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     video.play();
-                    // Giải phóng Blob URL sau khi sử dụng
                     URL.revokeObjectURL(blobUrl);
                 });
                 hls.on(Hls.Events.ERROR, (event, data) => {
@@ -64,13 +71,11 @@ $(document).ready(function () {
 
             } catch (error) {
                 console.error('Error loading HLS video:', error);
-                // Fallback nếu việc fetch playlist thất bại
                 video.src = m3u8Url;
                 video.addEventListener('loadedmetadata', () => video.play());
             }
 
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Đối với trình duyệt không hỗ trợ Hls.js
             video.src = m3u8Url;
             video.addEventListener('loadedmetadata', () => video.play());
         }
@@ -86,7 +91,7 @@ $(document).ready(function () {
         $('#episodes-sidebar').html(episodeHtml);
 
         $('#episodes-sidebar .list-group-item').on('click', function () {
-            if ($(this).hasClass('active')) return; // Chặn click trùng tập
+            if ($(this).hasClass('active')) return;
             const newEpisodeSlug = $(this).data('slug');
             const newM3u8Url = $(this).data('url');
             window.history.pushState({}, '', `watch.html?slug=${movieSlug}&episode=${newEpisodeSlug}`);
