@@ -2,51 +2,22 @@ $(document).ready(function () {
     const API_BASE_URL = 'https://ophim1.com/v1/api/phim/';
     const video = document.getElementById('video-player');
     let hls;
-    const m3u8Cache = {};
 
-    const adsRegexList = [
-        /(?<!#EXT-X-DISCONTINUITY[\s\S]*)#EXT-X-DISCONTINUITY\n(?:.*?\n){18,24}#EXT-X-DISCONTINUITY\n(?![\s\S]*#EXT-X-DISCONTINUITY)/g,
-        /#EXT-X-DISCONTINUITY\n(?:#EXT-X-KEY:METHOD=NONE\n(?:.*\n){18,24})?#EXT-X-DISCONTINUITY\n|convertv7\//g,
-        /#EXT-X-DISCONTINUITY\n#EXTINF:(?:3\.92|0\.76|2\.0|2\.5|2\.42|0\.78|1\.96|1\.76|3\.2|1\.36|0\.72)0000,\n.*\n/g
-    ];
-    const isContainAds = c => adsRegexList.some(r => (r.lastIndex = 0, r.test(c)));
-
-    async function removeAdsFromM3u8(url) {
-        const base = new URL(url);
-        if (m3u8Cache[base]) return m3u8Cache[base];
-        let text = await (await fetch(base)).text();
-
-        text = text.replace(/^[^#].*$/gm, l => {
-            try { return new URL(l, base); } catch { return l; }
-        });
-
-        if (text.includes("#EXT-X-STREAM-INF")) {
-            const list = text.trim().split("\n").filter(l => l.endsWith(".m3u8"));
-            return m3u8Cache[base] = await removeAdsFromM3u8(list.at(-1));
-        }
-
-        if (isContainAds(text)) adsRegexList.forEach(r => text = text.replaceAll(r, ""));
-        return m3u8Cache[base] = URL.createObjectURL(new Blob([text], { type: "application/vnd.apple.mpegurl" }));
-    }
-
-    // ===== LẤY PARAM TỪ URL =====
     function getUrlParameter(name) {
         const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
         const results = regex.exec(location.search);
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
-    // ===== LOAD VIDEO =====
     async function loadEpisode(m3u8Url) {
-        const cleanUrl = await removeAdsFromM3u8(m3u8Url); // Chặn quảng cáo trước khi phát
         if (Hls.isSupported()) {
             if (hls) hls.destroy();
             hls = new Hls();
-            hls.loadSource(cleanUrl);
+            hls.loadSource(m3u8Url);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = cleanUrl;
+            video.src = m3u8Url;
             video.addEventListener('loadedmetadata', () => video.play());
         }
     }
