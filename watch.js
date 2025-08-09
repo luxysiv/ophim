@@ -1,9 +1,9 @@
 $(document).ready(function () {
     const API_BASE_URL = 'https://ophim1.com/v1/api/phim/';
     const videoElement = document.getElementById('video-player');
+    const videoWrapper = document.getElementById('video-wrapper');
     const m3u8Cache = {};
 
-    // Regex lọc quảng cáo trong m3u8
     const adsRegexList = [
         /(?<!#EXT-X-DISCONTINUITY[\s\S]*)#EXT-X-DISCONTINUITY\n(?:.*?\n){18,24}#EXT-X-DISCONTINUITY\n(?![\s\S]*#EXT-X-DISCONTINUITY)/g,
         /#EXT-X-DISCONTINUITY\n(?:#EXT-X-KEY:METHOD=NONE\n(?:.*\n){18,24})?#EXT-X-DISCONTINUITY\n|convertv7\//g,
@@ -11,27 +11,22 @@ $(document).ready(function () {
     ];
     const isContainAds = c => adsRegexList.some(r => (r.lastIndex = 0, r.test(c)));
 
-    // ✅ Trả về m3u8 dạng data: URI
     async function removeAdsFromM3u8(url) {
         const base = new URL(url);
         if (m3u8Cache[base]) return m3u8Cache[base];
         let text = await (await fetch(base)).text();
 
-        // Fix đường dẫn segment
         text = text.replace(/^[^#].*$/gm, l => {
             try { return new URL(l, base); } catch { return l; }
         });
 
-        // Nếu là master playlist → lấy bản cuối
         if (text.includes("#EXT-X-STREAM-INF")) {
             const list = text.trim().split("\n").filter(l => l.endsWith(".m3u8"));
             return m3u8Cache[base] = await removeAdsFromM3u8(list.at(-1));
         }
 
-        // Lọc quảng cáo
         if (isContainAds(text)) adsRegexList.forEach(r => text = text.replaceAll(r, ""));
 
-        // Trả về data URI
         const dataUri = "data:application/vnd.apple.mpegurl;base64," +
                         btoa(unescape(encodeURIComponent(text)));
         return m3u8Cache[base] = dataUri;
@@ -43,7 +38,6 @@ $(document).ready(function () {
         return results ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : '';
     }
 
-    // Load tập phim
     async function loadEpisode(m3u8Url) {
         try {
             const cleanUrl = await removeAdsFromM3u8(m3u8Url);
@@ -52,7 +46,6 @@ $(document).ready(function () {
                 type: 'application/vnd.apple.mpegurl'
             });
 
-            // Autoplay muted để tránh bị chặn
             player.muted(true);
             player.play().catch(() => {
                 console.warn("Autoplay bị chặn, chờ người dùng bấm play");
@@ -62,7 +55,6 @@ $(document).ready(function () {
         }
     }
 
-    // Render danh sách tập
     function renderEpisodes(episodes, movieSlug, currentEpisodeSlug) {
         const episodeHtml = episodes.map(ep => `
             <li class="list-group-item bg-dark text-white border-secondary ${ep.slug === currentEpisodeSlug ? 'active' : ''}"
@@ -84,7 +76,6 @@ $(document).ready(function () {
         });
     }
 
-    // Khởi tạo Video.js
     const player = videojs(videoElement, {
         autoplay: 'muted',
         muted: true,
@@ -96,12 +87,13 @@ $(document).ready(function () {
         }
     });
 
-    // Double tap tua 10s
+    // Double tap tua 10s + Ripple
     let lastTapTime = 0;
-    videoElement.addEventListener('touchend', function (e) {
-        const currentTime = new Date().getTime();
+    videoWrapper.addEventListener('touchend', function (e) {
+        const currentTime = Date.now();
         const tapX = e.changedTouches[0].clientX;
         const screenWidth = window.innerWidth;
+
         if (currentTime - lastTapTime < 300) {
             if (tapX < screenWidth / 2) {
                 player.currentTime(player.currentTime() - 10);
@@ -110,6 +102,7 @@ $(document).ready(function () {
                 player.currentTime(player.currentTime() + 10);
                 showTapIndicator('right');
             }
+            createRipple(tapX, e.changedTouches[0].clientY);
         }
         lastTapTime = currentTime;
     });
@@ -120,7 +113,15 @@ $(document).ready(function () {
         setTimeout(() => el.classList.remove('tap-show'), 500);
     }
 
-    // Lấy dữ liệu phim từ API
+    function createRipple(x, y) {
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple');
+        ripple.style.left = `${x - videoWrapper.getBoundingClientRect().left}px`;
+        ripple.style.top = `${y - videoWrapper.getBoundingClientRect().top}px`;
+        videoWrapper.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    }
+
     const movieSlug = getUrlParameter('slug');
     let episodeSlug = getUrlParameter('episode');
 
