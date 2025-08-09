@@ -1,0 +1,153 @@
+/* Custom CSS Variables */
+:root {
+    --primary-color: #e50914; /* Netflix Red */
+    --background-color: #141414;
+    --card-background: #222;
+    --text-color: #fff;
+    --muted-text-color: #aaa;
+    --border-color: #444;
+    --hover-color: #1a1a1a;
+    --font-family: 'Poppins', sans-serif;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-color);
+}
+.text-muted {
+    color: var(--muted-text-color) !important;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #000 !important;
+    border-bottom: 1px solid var(--border-color);
+}
+.navbar-brand, .nav-link {
+    color: var(--text-color) !important;
+    transition: color 0.3s ease;
+}
+.navbar-brand:hover, .nav-link:hover {
+    color: var(--primary-color) !important;
+}
+
+/* Cards */
+.card-link {
+    text-decoration: none;
+    color: inherit;
+}
+.card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+.card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+.card-img-top {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+.card:hover .card-img-top {
+    transform: scale(1.05);
+}
+.card-body {
+    padding: 1rem;
+}
+.card-footer {
+    background-color: var(--card-background);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+/* Watch Page */
+.video-container {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+    background: #000;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+.video-container video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+#episodes-sidebar {
+    background-color: var(--card-background);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    max-height: 70vh; /* Giới hạn chiều cao */
+    overflow-y: auto;
+}
+#episodes-sidebar .list-group-item {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border-color: var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+#episodes-sidebar .list-group-item:hover {
+    background-color: var(--hover-color);
+    transform: translateX(5px);
+}
+#episodes-sidebar .list-group-item.active {
+    background-color: var(--primary-color) !important;
+    color: var(--text-color) !important;
+    font-weight: bold;
+    border-color: var(--primary-color);
+}
+
+/* Movie Detail Page */
+.movie-poster {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+#movie-detail {
+    background-color: var(--card-background);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+.episode-list a.btn {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border-color: var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.episode-list a.btn:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+/* Pagination */
+.pagination .page-item .page-link {
+    background-color: var(--card-background);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+.pagination .page-item.active .page-link {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-color);
+}
