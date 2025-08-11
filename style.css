@@ -1,0 +1,29 @@
+body {
+    font-family: 'Poppins', sans-serif;
+}
+
+.card {
+    background-color: #1a1a1a;
+    border: none;
+    transition: transform 0.3s ease;
+}
+.card:hover {
+    transform: scale(1.05);
+}
+
+#episodeList button {
+    border: none;
+    background-color: transparent;
+    color: white;
+    text-align: left;
+    padding: 8px;
+    transition: background-color 0.3s ease;
+}
+#episodeList button:hover {
+    background-color: #333;
+}
+
+#episodeList button.active-episode {
+    background-color: #ff4747;
+    color: white;
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phim</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/artplayer/dist/artplayer.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-dark text-white">
+
+    <div class="container py-3">
+        <form id="searchForm" class="d-flex mb-4">
+            <input id="searchInput" class="form-control me-2" type="search" placeholder="Tìm kiếm phim...">
+            <button class="btn btn-danger" type="submit">Tìm</button>
+        </form>
+        <div id="movieList" class="row"></div>
+    </div>
+
+    <div class="modal fade" id="playerModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content bg-black">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-danger" id="movieTitle"></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0">
+                        <div class="col-lg-9">
+                            <div id="player" style="width:100%;height:70vh;"></div>
+                        </div>
+                        <div class="col-lg-3 bg-dark p-2" id="episodeList" style="max-height:70vh; overflow-y:auto;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/hls.js/dist/hls.min.js"></script>
+    <script src="https://unpkg.com/artplayer/dist/artplayer.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
