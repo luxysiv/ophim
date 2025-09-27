@@ -138,7 +138,7 @@ async function onRequest({ request }) {
     // Nhóm phim mới cập nhật
     responseBody.groups.push({
       id: "ophim-all",
-      name: "Phim Mới Cập Nhật",
+      // name: "Phim Mới Cập Nhật",
       display: "slider",
       grid_number: 1,
       enable_detail: true,
