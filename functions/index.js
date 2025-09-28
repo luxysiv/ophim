@@ -45,7 +45,7 @@ async function fetchJSON(url) {
 }
 
 function buildSortOptions(origin, items, prefix) {
-  const allOption = { type: "radio", text: "Tất cả", url: origin, selected: true };
+  const allOption = { type: "radio", url: origin };
   const mapped = items.map((it) => ({
     type: "radio",
     text: it.name,
