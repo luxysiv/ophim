@@ -67,8 +67,21 @@ async function onRequest({ request }) {
     const data = await fetchJSON(searchUrl);
     if (!data?.data?.items) return jsonResponse({ channels: [] });
 
+    let items = data.data.items;
+    
+    items.sort((a, b) => {
+      const yearA = parseInt(a.year) || 0;
+      const yearB = parseInt(b.year) || 0;
+
+      if (yearA !== yearB) {
+        return yearB - yearA;
+      }
+      
+      return 0;
+    });
+
     const pagination = data.data.params.pagination;
-    const channels = mapItemsToChannels(data.data.items, origin, CONFIG.CDN_IMAGE);
+    const channels = mapItemsToChannels(items, origin, CONFIG.CDN_IMAGE);
 
     const load_more =
       pagination.currentPage < pagination.pageRanges
