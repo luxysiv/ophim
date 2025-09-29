@@ -91,22 +91,6 @@ async function onRequest({ request, params }) {
   // Response body
   const responseBody = {
     id: detailItem.slug,
-    name: detailItem.name,
-    title: detailItem.origin_name,
-    label: [
-      detailItem.episode_current,
-      detailItem.quality,
-      detailItem.lang,
-    ]
-      .filter(Boolean)
-      .join(" - "),
-    image: {
-      url: `${CONFIG.CDN}/uploads/movies/${detailItem.thumb_url}`,
-      type: "contain",
-    },
-    display: "default",
-    type: detailItem.type,
-    enable_detail: true,
     sources,
     subtitle: detailItem.lang,
   };
