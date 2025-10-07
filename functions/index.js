@@ -32,6 +32,10 @@ const CONFIG = {
   ],
 };
 
+// --- Cache config ---
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 giờ
+const REFRESH_THRESHOLD_MS = 2.75 * 60 * 60 * 1000; // 2h45
+
 // --- Helpers ---
 async function fetchJSON(url) {
   try {
@@ -45,7 +49,7 @@ async function fetchJSON(url) {
 }
 
 function buildSortOptions(origin, items, prefix) {
-  const allOption = { type: "radio", url: origin };
+  const allOption = { type: "radio", text: "Tất cả", url: origin };
   const mapped = items.map((it) => ({
     type: "radio",
     text: it.name,
@@ -59,10 +63,7 @@ function mapItemsToChannels(items, origin, cdn) {
     id: item.slug,
     name: item.name,
     label: `${item.episode_current} | ${item.quality} | ${item.lang}`,
-    image: {
-      url: `${cdn}/uploads/movies/${item.thumb_url}`,
-      type: "contain",
-    },
+    image: { url: `${cdn}/uploads/movies/${item.thumb_url}`, type: "contain" },
     display: "text-below",
     type: item.type,
     enable_detail: true,
@@ -81,8 +82,67 @@ async function fetchGroupChannels(group, origin, cdn) {
   return mapItemsToChannels(items.slice(0, limit), origin, cdn);
 }
 
-// --- Main Handler ---
-async function onRequest({ request }) {
+// --- Cache logic wrapper ---
+export async function onRequest(context) {
+  const cache = caches.default;
+  const cacheKey = new Request(context.request.url);
+  const now = Date.now();
+
+  let cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    const cachedAt = parseInt(cachedResponse.headers.get("X-Cache-Date") || "0");
+    const age = now - cachedAt;
+
+    // Nếu cache còn hiệu lực
+    if (age < CACHE_TTL_MS) {
+      // Nếu gần hết hạn, làm mới ngầm
+      if (age > REFRESH_THRESHOLD_MS) {
+        context.waitUntil(refreshCache(context, cacheKey));
+      }
+      const clone = new Response(cachedResponse.body, cachedResponse);
+      clone.headers.set("X-Cache", "HIT");
+      clone.headers.set("X-Cache-Age", `${Math.round(age / 1000)}s`);
+      clone.headers.set(
+        "Cache-Control",
+        `public, s-maxage=${CACHE_TTL_MS / 1000}, stale-while-revalidate=600`
+      );
+      return clone;
+    }
+  }
+
+  // Không có cache hoặc hết hạn
+  const fresh = await generateResponse(context);
+  fresh.headers.set("X-Cache-Date", `${now}`);
+  fresh.headers.set("X-Cache", cachedResponse ? "STALE→FRESH" : "MISS");
+  fresh.headers.set(
+    "Cache-Control",
+    `public, s-maxage=${CACHE_TTL_MS / 1000}, stale-while-revalidate=600`
+  );
+
+  context.waitUntil(cache.put(cacheKey, fresh.clone()));
+  return fresh;
+}
+
+// Làm mới cache ngầm
+async function refreshCache(context, cacheKey) {
+  const cache = caches.default;
+  try {
+    const fresh = await generateResponse(context);
+    fresh.headers.set("X-Cache-Date", `${Date.now()}`);
+    fresh.headers.set("X-Cache", "REFRESHED");
+    fresh.headers.set(
+      "Cache-Control",
+      `public, s-maxage=${CACHE_TTL_MS / 1000}, stale-while-revalidate=600`
+    );
+    await cache.put(cacheKey, fresh.clone());
+    console.log("✅ Cache refreshed:", cacheKey.url);
+  } catch (err) {
+    console.error("❌ Failed to refresh cache:", err);
+  }
+}
+
+// --- Build full JSON response ---
+async function generateResponse({ request }) {
   const origin = new URL(request.url).origin;
   const responseBody = {
     id: "ophim-provider",
@@ -104,7 +164,7 @@ async function onRequest({ request }) {
   };
 
   try {
-    // --- Sort dropdowns ---
+    // Sort dropdowns
     responseBody.sorts.push({
       type: "dropdown",
       text: "Loại phim",
@@ -129,16 +189,15 @@ async function onRequest({ request }) {
       });
     }
 
-    // --- Home data ---
+    // Home
     const homeData = await fetchJSON(CONFIG.API.HOME);
     if (!homeData) throw new Error("Failed to fetch home data");
 
     const cdn = homeData.data.APP_DOMAIN_CDN_IMAGE || "https://img.ophim.live";
 
-    // Nhóm phim mới cập nhật
+    // Slider phim mới
     responseBody.groups.push({
       id: "ophim-all",
-      // name: "Phim Mới Cập Nhật",
       display: "slider",
       grid_number: 1,
       enable_detail: true,
@@ -160,15 +219,19 @@ async function onRequest({ request }) {
     }
 
     return new Response(JSON.stringify(responseBody), {
-      headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   } catch (err) {
     console.error("Error in home handler:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   }
-}
-
-export { onRequest };
+                                        }
