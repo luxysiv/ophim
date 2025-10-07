@@ -33,7 +33,7 @@ const CONFIG = {
 };
 
 // --- Cache config ---
-const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 giờ
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 3 giờ
 const REFRESH_THRESHOLD_MS = 2.75 * 60 * 60 * 1000; // 2h45
 
 // --- Helpers ---
