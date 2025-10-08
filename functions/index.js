@@ -152,7 +152,7 @@ async function generateResponse({ request }) {
     url: origin,
     color: "#181818",
     image: { url: `${origin}/logo.png`, type: "contain", height: 187, width: 28 },
-    grid_number: 1,
+    grid_number: 3,
     search: {
       url: `${origin}/search`,
       search_key: "q",
