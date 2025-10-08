@@ -152,7 +152,7 @@ async function generateResponse({ request }) {
     url: origin,
     color: "#181818",
     image: { url: `${origin}/logo.png`, type: "contain", height: 187, width: 28 },
-    grid_number: 3,
+    grid_number: 2,
     search: {
       url: `${origin}/search`,
       search_key: "q",
@@ -211,7 +211,7 @@ async function generateResponse({ request }) {
         id: group.id,
         name: group.name,
         display: "horizontal",
-        grid_number: 1,
+        grid_number: 2,
         enable_detail: true,
         channels,
         remote_data: { url: `${origin}/${group.type}/${group.slug}` },
