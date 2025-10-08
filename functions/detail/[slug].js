@@ -80,6 +80,7 @@ async function onRequest({ request, params }) {
               {
                 id: `${slug}-content-${serverIndex}`,
                 name: "",
+                grid_number: 4,
                 streams,
               },
             ],
